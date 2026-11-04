@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { NOISE, glowTexture, mulberry, wear } from "./shading.js";
+import { CELLS, NOISE, glowTexture, mulberry, wear } from "./shading.js";
 
 /*
  * Acts III–IV. A gothic-mechanical hall far from the first set. A cloaked
@@ -204,6 +204,7 @@ function cloakGeometry(nu, nv) {
   const uv = [];
   const av = [];
   const au = [];
+  const cav = [];
   const rand = mulberry(9);
   const phases = Array.from({ length: 4 }, () => rand() * 6.28);
   for (let j = 0; j <= nv; j++) {
@@ -221,6 +222,7 @@ function cloakGeometry(nu, nv) {
       const curl = 1 - 0.06 * Math.exp(-edge * 40) * v;
       const r = (1 + f) * curl;
       pos.push(Math.sin(a) * rx * r, y + fold * 0.3 * Math.sin(a * 11 + phases[3]), Math.cos(a) * rz * r);
+      cav.push(fold > 0 ? f / fold : 0);
       uv.push(s, v);
       av.push(v);
       au.push(s);
@@ -241,6 +243,7 @@ function cloakGeometry(nu, nv) {
   g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
   g.setAttribute("aV", new THREE.Float32BufferAttribute(av, 1));
   g.setAttribute("aU", new THREE.Float32BufferAttribute(au, 1));
+  g.setAttribute("aFold", new THREE.Float32BufferAttribute(cav, 1));
   g.setIndex(idx);
   g.computeVertexNormals();
   return g;
@@ -263,14 +266,46 @@ const CLOTH_VERTEX = /* glsl */ `
 `;
 
 function clothPatch(material, uniforms, key) {
+  const depth = material.isMeshDepthMaterial;
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = shader.vertexShader
       .replace(
         "#include <common>",
-        "#include <common>\nattribute float aV; attribute float aU; uniform float uTime; uniform float uSway; uniform float uFlare; uniform float uWind;"
+        "#include <common>\nattribute float aV; attribute float aU; attribute float aFold; uniform float uTime; uniform float uSway; uniform float uFlare; uniform float uWind; varying vec3 vCl;"
       )
-      .replace("#include <begin_vertex>", CLOTH_VERTEX);
+      .replace("#include <begin_vertex>", CLOTH_VERTEX + "\nvCl = vec3(aU, aV, aFold);");
+    if (depth) return;
+    // Heavy wool: twill weave relief, inner folds darker, a worn hem.
+    shader.fragmentShader = shader.fragmentShader
+      .replace("#include <common>", `#include <common>\nvarying vec3 vCl;\n${NOISE}\n${CELLS}`)
+      .replace(
+        "#include <map_fragment>",
+        `#include <map_fragment>
+        float clCav = smoothstep(0.2, -0.9, vCl.z);
+        float clHem = smoothstep(0.965, 1.0, vCl.y);
+        diffuseColor.rgb *= mix(1.0, 0.45, clCav) * mix(1.0, 0.6, clHem);
+        diffuseColor.rgb *= 0.85 + 0.3 * (snoise(vec3(vCl.xy * vec2(40.0, 16.0), 1.0)) * 0.5 + 0.5);`
+      )
+      .replace(
+        "#include <normal_fragment_maps>",
+        `#include <normal_fragment_maps>
+        {
+          vec2 w = vCl.xy * vec2(2600.0, 1500.0);
+          float pix = length(fwidth(vCl.xy * vec2(2600.0, 1500.0)));
+          float tw = sin(w.x + w.y) * 0.5 + 0.5;
+          float h = tw * 0.00004 * smoothstep(3.0, 0.8, pix) + snoise(vec3(vCl.xy * vec2(90.0, 40.0), 2.0)) * 0.0004;
+          normal = lpPerturb(-vViewPosition, normal, h, faceDirection);
+        }`
+      )
+      .replace(
+        "#include <aomap_fragment>",
+        `#include <aomap_fragment>
+        float clAO = mix(1.0, 0.35, clCav);
+        reflectedLight.indirectDiffuse *= clAO;
+        reflectedLight.indirectSpecular *= clAO;
+        reflectedLight.directDiffuse *= mix(1.0, clAO, 0.4);`
+      );
   };
   material.customProgramCacheKey = () => key;
   return material;
@@ -298,6 +333,7 @@ export class DoomSet {
       eyes: 0,
       shafts: 0,
       gears: 1,
+      heat: 0, // the mask red-hot from the forge, 0 … 1
     };
     this.u = {
       uTime: { value: 0 },
@@ -479,6 +515,7 @@ export class DoomSet {
   }
 
   _figure(geos, anchors) {
+    this.heatU = { uHeat: { value: 0 } };
     const fig = new THREE.Group();
     this.group.add(fig);
     this.figure = fig;
@@ -488,14 +525,22 @@ export class DoomSet {
         scorch: 0.35,
         scratch: 0.5,
         scale: 0.8,
+        ao: true,
+        relief: "hammered",
+        reliefScale: 0.5,
+        tunic: true,
         key: "doom-gun",
       })
     );
     const silver = this._keep(
-      wear(new THREE.MeshPhysicalMaterial({ color: "#a5aaae", metalness: 1, roughness: 0.3, clearcoat: 0.25, clearcoatRoughness: 0.35 }), {
-        scorch: 0.3,
-        scratch: 0.65,
+      wear(new THREE.MeshPhysicalMaterial({ color: "#8e9397", metalness: 1, roughness: 0.36, clearcoat: 0.15, clearcoatRoughness: 0.4 }), {
+        uniforms: this.heatU,
+        scorch: 0.4,
+        scratch: 0.6,
         scale: 1,
+        ao: true,
+        relief: "hammered",
+        heat: true,
         key: "doom-mask",
       })
     );
@@ -512,7 +557,7 @@ export class DoomSet {
         })
       );
     const cloakMat = clothPatch(wool("#0b2e19", "#2f8a55"), this.u, "cloak");
-    const hoodMat = wool("#0a2a17", "#2f8a55");
+    const hoodMat = wear(wool("#0a2a17", "#2f8a55"), { scorch: 0.15, scratch: 0, ao: true, relief: "weave", band: true, key: "hood" });
 
     const torso = new THREE.Mesh(geos.torso, gun);
     torso.castShadow = true;
@@ -1019,6 +1064,7 @@ export class DoomSet {
     this.moteMat.uniforms.uI.value = hall * 0.8 + S.sigil * 0.6;
     this.sigilMat.uniforms.uI.value = S.sigil * (0.85 + 0.15 * Math.sin(t * 2.0));
     this.eyeMat.opacity = S.eyes * (0.7 + 0.3 * Math.sin(t * 1.7));
+    this.heatU.uHeat.value = S.heat;
 
     const L = this.lights;
     L.back.intensity = 120 * hall;

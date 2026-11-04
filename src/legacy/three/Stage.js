@@ -20,7 +20,7 @@ export function prepareSculpts(quality, onProgress = () => {}) {
   const threads = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 4) - 1));
   const workers = Array.from({ length: threads }, () => new Worker(new URL("./sculpt.worker.js", import.meta.url), { type: "module" }));
   // Longest jobs first so the threads finish together.
-  const queue = ["hood", "mask", "helmet", "faceplate", "torso", "leg"];
+  const queue = ["mask", "helmet", "faceplate", "hood", "torso", "leg"];
   const geos = {};
   let done = 0;
   return new Promise((resolve, reject) => {
@@ -34,6 +34,7 @@ export function prepareSculpts(quality, onProgress = () => {}) {
         const g = new THREE.BufferGeometry();
         g.setAttribute("position", new THREE.BufferAttribute(data.position, 3));
         g.setAttribute("normal", new THREE.BufferAttribute(data.normal, 3));
+        g.setAttribute("aAO", new THREE.BufferAttribute(data.ao, 1));
         g.setIndex(new THREE.BufferAttribute(data.index, 1));
         g.computeBoundingSphere();
         geos[data.name] = g;
@@ -85,6 +86,13 @@ const FinishShader = {
       c *= mix(1.0, vig, 0.82 * uVignette);
       c += uFlashColor * uFlash;
       c *= uFade;
+      // Grade: a gentle filmic S-curve, slightly cooler shadows, and a
+      // touch less saturation in the deepest tones.
+      c = clamp(c, 0.0, 1.0);
+      c = mix(c, c * c * (3.0 - 2.0 * c), 0.22);
+      float l0 = dot(c, vec3(0.299, 0.587, 0.114));
+      c = mix(vec3(l0), c, mix(0.82, 1.04, smoothstep(0.02, 0.3, l0)));
+      c += vec3(-0.004, 0.0, 0.006) * (1.0 - smoothstep(0.0, 0.2, l0));
       // Film grain, stronger in the shadows, never lifting pure black much.
       float g = (hash(vUv * 1000.0) - 0.5) * uGrain;
       float lum = dot(c, vec3(0.299, 0.587, 0.114));

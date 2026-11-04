@@ -26,6 +26,21 @@ with it. The experience is served at the site root (`/`).
 
 ---
 
+## 0. Research: the story and the characters
+
+Researched on 2026-11-04 to ground the film in both characters' canon. Every
+narration line is original; no film dialogue is quoted.
+
+| Finding | Source | Where it shows up |
+|---------|--------|-------------------|
+| Tony recorded a goodbye inside the Mark 85 helmet; at his lakeside funeral his **first arc reactor was set adrift on the water on a bed of flowers** | [Iron Man wiki — Funeral of Tony Stark](https://ironman.fandom.com/wiki/Funeral_Of_Tony_Stark), [Screen Rant](https://screenrant.com/endgame-iron-man-funeral-reactor-tragedy/), [Deseret News on the Mark 85](https://www.deseret.com/entertainment/2019/8/9/20799806/iron-man-s-mark-85-armor-from-avengers-endgame-pays-tribute-to-tony-stark-s-growth-and-attachments) | Shot 2.3 is now **the reactor floating on still water in a ring of white flowers**, its core giving one last faint glow |
+| The arc reactor is Tony's heart, built from scrap after his capture | (MCU canon) | The mechanical heartbeat drives the reactor flicker and the eyes |
+| Victor von Doom was born to poor **Romani** parents in **Latveria**; his mother **Cynthia was a witch**; he unites **science and sorcery** | [Marvel.com — Doctor Doom](https://www.marvel.com/characters/doctor-doom-victor-von-doom/in-comics), [Nerdist history](https://nerdist.com/article/doctor-doom-complete-marvel-comics-history/) | Act III narration; the hall pairs gears (science) with the floor sigil (sorcery) |
+| A lab accident left a scar; in Tibet monks forged his iron mask and he **put it on while the metal was still red-hot** (Fantastic Four Annual #2, 1964) | [Bellevue University library — Secret Origins: Doctor Doom](https://library.bellevue.edu/articles/secret-origins-doctor-doom/) | New shot 4.2: **the mask glows red-hot and cools into iron** — the last warm colour in the film dies in Doom's mask |
+| Avengers: Doomsday (release 18 Dec 2026): Andy Park's mask is **squared-off and blocky with fine detailing**; the eyes behind it glow **green**; a **pattern on the hood** | [The Hollywood Reporter](https://www.hollywoodreporter.com/movies/movie-news/avengers-doomsday-trailer-robert-downey-jr-doctor-doom-mcu-1236611483/), [Variety](https://variety.com/2026/film/news/avengers-doomsday-art-doctor-doom-mask-x-men-1236809075/), [ComicBook.com](https://comicbook.com/movies/list/avengers-doomsday-trailer-doctor-doom-rdj-reveals-mask-powers/), [Screen Rant](https://screenrant.com/avengers-doomsday-new-doctor-doom-scene-design-choice/) | The mask is sculpted blockier (flat temples, straight jaw, plate seams, stepped chin, more rivets); green eye glow; an embroidered meander border on the hood |
+
+---
+
 ## 1. Inspection of the existing project (step 1)
 
 | Item | Found | Consequence |
@@ -62,14 +77,14 @@ The film is one master timeline of **12 units** (3 per act) mapped to about
 |------|---|---------|--------|----------------|-------|-----------|
 | 2.1 Last beat | 3.0–3.6 | The reactor gives two last flickers and goes dark. The eyes die with it | Locked off. The only still shot in the film | Warm key → 0; rim drains from red to charcoal | Heart: one beat, a long gap, a final beat. Hum winds down. Then true silence | "Silence." |
 | 2.2 Disintegration | 3.6–4.8 | From the cracks outward the armour comes apart into tens of thousands of embers and a few hundred metal shards. The surface burns away with a glowing edge; the embers lift and drift | Slow pull back and rise, 3° roll | Embers are the only light: hot orange at the burning edge, cooling to ember red | Deep transition rumble swells; metal fragments tick and ring | "Time does not stop for heroes." |
-| 2.3 Drift | 4.8–5.6 | The embers cool to ash grey and are carried into the depth. The last, farthest ones catch the faintest trace of green from somewhere very far away | Tilt and drift toward the depth, following them | Orange → ash grey → a hint of green on the farthest few | Rumble falls away; a single distant metallic ring | "It only remembers them." |
+| 2.3 The water | 4.75–5.6 | The floor stills into black water. The dead reactor floats on it, and white flowers open around it — the funeral, remembered. Its core glows faintly one last time and goes out; ash drifts overhead | Crane down to a high three-quarter view of the reactor, slow settle | A cold, soft top light; the embers' orange fades to ash | A single drop on water, soft lapping, a distant metallic ring | "It only remembers them." |
 | 2.4 The gap | 5.6–6.0 | Complete darkness | — | Exposure 0 | Sub-bass only, then nothing | — |
 
 ### ACT 03 — THE UNKNOWN  (6.0 – 9.0) · *mystery, transformation, anticipation*
 
 | Shot | t | Picture | Camera | Light / colour | Sound | On screen |
 |------|---|---------|--------|----------------|-------|-----------|
-| 3.1 The hall | 6.0–6.9 | Green breathes into the fog. A vast mechanical hall: ribbed stone columns, colossal gears turning in the dark, pipes, a round window at the far end glowing green | Low crawl forward at knee height between the columns | Emerald back-light through fog; green shafts from high windows; gunmetal everywhere else | Dark drone (minor-second cluster), slow gear groans, chains | "Far from here, another throne has waited." |
+| 3.1 The hall | 6.0–6.9 | Green breathes into the fog. A vast mechanical hall: ribbed stone columns, colossal gears turning in the dark, pipes, a round window at the far end glowing green | Low crawl forward at knee height between the columns | Emerald back-light through fog; green shafts from high windows; gunmetal everywhere else | Dark drone (minor-second cluster), slow gear groans, chains | "In the mountains of Latveria, another throne has waited." · "Born with nothing. Raised on science and sorcery." |
 | 3.2 Footsteps | 6.9–8.0 | Out of the green haze a cloaked figure steps forward — a silhouette only, back-lit, his long shadow reaching the lens | Hold, then a very slow push; slight dip on each footfall | Back-light only; no front light at all | Six heavy footsteps, each a sub thud and a metal clank with a long reverb tail, one per scroll step | "He does not ask for permission." |
 | 3.3 Partial reveal | 8.0–9.0 | Lateral tracking past a column: the edge of the green cloak, the rim of the hood, a glint of metal where the face should be. Never the whole figure | Truck right behind a column (foreground wipe), end on a 3/4 profile | Hard green rim; face in total shadow | Footsteps stop. Cloth movement. The drone thins | "He does not need to be loved." |
 
@@ -78,7 +93,7 @@ The film is one master timeline of **12 units** (3 per act) mapped to about
 | Shot | t | Picture | Camera | Light / colour | Sound | On screen |
 |------|---|---------|--------|----------------|-------|-----------|
 | 4.1 Mirror | 9.0–9.8 | **The exact framing of shot 1.2** — low, close, under-lit — but the light that comes on is an emerald energy sphere rising out of a sigil in the floor. Its light climbs the cloak and reveals the iron mask | Low macro push, then tilt up the figure to the mask | Green under-light (the reactor's inverse); eyes stay black | Energy activation: rising FM swell, crackle, sub | "Only obeyed." |
-| 4.2 The mask | 9.8–10.5 | Close-up of the mask: rivets, brow, the mouth grille. Lightning crawls over the sphere | Slow dolly-in to the eye line, the stillest shot of the act | Green key from below, cool silver speculars | Energy hum builds; heartbeat motif returns as a *drum*, not a heart | "A hero left a legacy." → "A villain will make history." |
+| 4.2 The mask | 9.8–10.6 | Close-up of the mask — red-hot from the forge, scale flaking dark across it — cooling to hammered iron. Then the eyes behind it light green | Slow dolly-in to the eye line, the stillest shot of the act | Forge orange from the iron itself, green key from below, cool speculars | Long hiss of hot iron, cooling ticks; the energy hum builds | "He put on the mask before the iron had cooled." → "A hero left a legacy." / "A villain will make history." |
 | 4.3 Monument | 10.5–11.4 | The sphere surges: a shockwave of green runs across the floor and up the columns; the sigil blazes; every shaft ignites. A single orange ember from Act 2 drifts through the foreground and goes out | Long pull back and up to a symmetrical wide — Doom dead centre, columns framing him | Green floods the hall; the ember is the only warm pixel left | Final impact: sub drop, noise burst, low brass-like chord, long tail | "THE END OF AN ERA." (as the ember dies) → "THE RISE OF DOOM." (on the impact) |
 | 4.4 End frame | 11.4–12.0 | Clean end frame: the monument, darkened, under the title | Locked | Exposure eases down to 40 % | Reverb tail only | "AVENGERS: DOOMSDAY" · fan-tribute note · replay |
 
@@ -90,12 +105,14 @@ The film is one master timeline of **12 units** (3 per act) mapped to about
 4. Silence.
 5. Time does not stop for heroes.
 6. It only remembers them.
-7. Far from here, another throne has waited.
-8. He does not ask for permission.
-9. He does not need to be loved.
-10. Only obeyed.
-11. A hero left a legacy.
-12. A villain will make history.
+7. In the mountains of Latveria, another throne has waited.
+8. Born with nothing. Raised on science and sorcery.
+9. He does not ask for permission.
+10. He does not need to be loved.
+11. Only obeyed.
+12. He put on the mask before the iron had cooled.
+13. A hero left a legacy.
+14. A villain will make history.
 
 Title: **THE END OF AN ERA. / THE RISE OF DOOM.** — then **AVENGERS: DOOMSDAY**.
 
@@ -284,8 +301,8 @@ have far more headroom.
 
 **Known limitations**
 
-* Sculpting takes a few seconds (about 5 s of CPU work split across up to four
-  workers on desktop; a coarser mesh on phones) behind the
+* Sculpting takes a few seconds (about 11 s of CPU work, including the
+  occlusion bake, split across up to four workers; a coarser mesh on phones) behind the
   gate; meshes are not cached between visits.
 * No screen-space reflections: the wet floors reflect lights and the
   environment, not other objects.
@@ -293,3 +310,27 @@ have far more headroom.
   cheap but not volumetric.
 * Audio cues fire only when scrolling forwards (by design); continuous layers
   follow in both directions.
+
+---
+
+## 7. Realism pass
+
+The first build read as stylised: smooth surfaces, flat ambient, no grime.
+What changed:
+
+| Technique | Where |
+|-----------|-------|
+| **Baked ambient occlusion from the SDF** (5 samples along each vertex normal, in the worker) — seams, vents, eye holes, rivets and the inside of the hood go dark; soot and grime gather in the cavities, edge wear shows on exposed edges | every sculpt |
+| **Procedural relief** (screen-space bump from a height function, normalised to world units and faded where a pixel is larger than the detail so it never sparkles): orange-peel paint and scratch grooves; forged hammer dimples (cellular noise); twill weave | helmet, Doom's mask and armour, hood, cloak |
+| **More modelled detail**: helmet jaw seam, skull spine, brow seam, three jaw vents per side, ear-disc screws, forehead rails, chin split, under-eye seams; mask squared off with plate seams, a mouth bar, stepped chin and 13 rivets a side | `sculpts.js` |
+| **Inner machinery** on the back faces of the torn helmet: dark metal with copper traces | helmet |
+| **Cloth**: fold cavities darkened from the fold profile, a worn hem, weave relief; a green wool **tunic** over the armour; an **embroidered border** on the hood | cloak, torso, hood |
+| **Forge heat**: blackbody glow that cools from thin edges inward, with dark scale | Doom's mask, shot 4.2 |
+| **Water**: mirror-smooth black water with concentric ripples from the reactor; cracked, gritty ground elsewhere | Act II floor |
+| **Grade**: filmic S-curve, slightly desaturated, cooler shadows | final pass |
+
+Screen-space AO (GTAOPass) was evaluated and rejected: its normal pre-pass
+would treat the additive embers, glows and lightning as solid geometry and
+ignore the cloak's vertex animation. The baked occlusion has neither problem
+and costs nothing per frame. Sculpt time grows to about 11 s of CPU split
+across up to four workers (≈3–4 s behind the gate on a desktop).

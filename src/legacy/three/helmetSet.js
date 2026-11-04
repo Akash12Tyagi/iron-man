@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { EROSION, ERODE_K, ERODE_SPAN, NOISE, erodeFieldApprox, erodingDepth, glowTexture, mulberry, sampleSurface, wear } from "./shading.js";
+import { CELLS, EROSION, ERODE_K, ERODE_SPAN, NOISE, erodeFieldApprox, erodingDepth, glowTexture, mulberry, sampleSurface, wear } from "./shading.js";
 
 /*
  * Acts I–II. A damaged helmet rests on a dark floor; a detached arc reactor
@@ -26,6 +26,8 @@ export class HelmetSet {
       dust: 1,
       erode: 0,
       drift: 1,
+      water: 0, // the floor stills into dark water around the reactor
+      petals: 0, // white petals open around it, 0 … 1
     };
     this.power = 0; // the reactor's actual output this frame, after flicker
     this.uniforms = {
@@ -33,6 +35,8 @@ export class HelmetSet {
       uTime: { value: 0 },
       uScale: { value: 800 },
       uDrift: { value: 1 },
+      uWater: { value: 0 },
+      uSrc: { value: new THREE.Vector2(REACTOR_POS.x, REACTOR_POS.z) },
     };
     this._disposables = [];
 
@@ -43,6 +47,7 @@ export class HelmetSet {
     this._shards(geos);
     this._debris();
     this._dust();
+    this._petals();
     this._lights();
   }
 
@@ -56,19 +61,38 @@ export class HelmetSet {
       new THREE.MeshStandardMaterial({ color: "#0b0b0c", roughness: 0.5, metalness: 0.0 })
     );
     mat.onBeforeCompile = (shader) => {
+      Object.assign(shader.uniforms, { uWater: this.uniforms.uWater, uTime: this.uniforms.uTime, uSrc: this.uniforms.uSrc });
       shader.vertexShader = shader.vertexShader
         .replace("#include <common>", "#include <common>\nvarying vec3 vW;")
         .replace("#include <worldpos_vertex>", "#include <worldpos_vertex>\nvW = (modelMatrix * vec4(transformed, 1.0)).xyz;");
       shader.fragmentShader = shader.fragmentShader
-        .replace("#include <common>", `#include <common>\nvarying vec3 vW;\n${NOISE}`)
+        .replace("#include <common>", `#include <common>\nvarying vec3 vW;\nuniform float uWater; uniform float uTime; uniform vec2 uSrc;\n${NOISE}\n${CELLS}`)
         .replace(
           "#include <roughnessmap_fragment>",
           `#include <roughnessmap_fragment>
           float wet = smoothstep(0.05, 0.35, fbm3(vW * 2.2) * 0.5 + 0.3);
           float grit = snoise(vW * 90.0) * 0.5 + 0.5;
+          float crack = 1.0 - smoothstep(0.0, 0.05, cells(vW * 9.0) - 0.42 + snoise(vW * 30.0) * 0.08);
           roughnessFactor = mix(0.72 + grit * 0.2, 0.12, wet);
           float burn = smoothstep(0.45, 0.0, length(vW.xz - vec2(0.0, 0.02)));
-          diffuseColor.rgb *= mix(1.0, 0.25, burn) * (0.75 + 0.25 * grit) * mix(1.0, 0.55, wet);`
+          diffuseColor.rgb *= mix(1.0, 0.25, burn) * (0.75 + 0.25 * grit) * mix(1.0, 0.55, wet) * (1.0 - crack * 0.5);
+          // Still water: black, mirror-smooth, spreading from the reactor.
+          float wr = length(vW.xz - uSrc);
+          float water = uWater * smoothstep(1.6 * uWater + 0.05, 0.2 * uWater, wr);
+          roughnessFactor = mix(roughnessFactor, 0.025, water);
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.004, 0.005, 0.006), water);`
+        )
+        .replace(
+          "#include <normal_fragment_maps>",
+          `#include <normal_fragment_maps>
+          {
+            float h = snoise(vW * 22.0) * 0.00025 - crack * 0.0012;
+            float wr2 = length(vW.xz - uSrc);
+            float ripple = sin(wr2 * 110.0 - uTime * 2.6) * exp(-wr2 * 5.0) * 0.00035
+                         + snoise(vec3(vW.xz * 6.0, uTime * 0.25)) * 0.0006;
+            h = mix(h, ripple, uWater * smoothstep(1.7 * uWater + 0.05, 0.2 * uWater, wr2));
+            normal = lpPerturb(-vViewPosition, normal, h, faceDirection);
+          }`
         );
     };
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(14, 14), mat);
@@ -95,7 +119,7 @@ export class HelmetSet {
         clearcoatRoughness: 0.22,
         side: THREE.DoubleSide,
       }),
-      { uniforms: u, erode: true, scorch: 0.75, scratch: 0.55, crack: 1, key: "helmet-red" }
+      { uniforms: u, erode: true, scorch: 0.75, scratch: 0.55, crack: 1, ao: true, inner: true, relief: "paint", key: "helmet-red" }
     );
     const gold = wear(
       new THREE.MeshPhysicalMaterial({
@@ -106,7 +130,7 @@ export class HelmetSet {
         clearcoatRoughness: 0.3,
         side: THREE.DoubleSide,
       }),
-      { uniforms: u, erode: true, scorch: 0.45, scratch: 0.6, crack: 1, key: "helmet-gold" }
+      { uniforms: u, erode: true, scorch: 0.45, scratch: 0.6, crack: 1, ao: true, inner: true, relief: "paint", key: "helmet-gold" }
     );
     const depth = erodingDepth(u);
     this._keep(red, gold, depth);
@@ -150,6 +174,7 @@ export class HelmetSet {
     g.rotateX(Math.PI / 2);
     this.group.add(g);
     this.reactor = g;
+    this._reactorRest = g.rotation.clone();
 
     const steel = this._keep(
       wear(new THREE.MeshPhysicalMaterial({ color: "#8d9096", metalness: 1, roughness: 0.3, clearcoat: 0.3 }), {
@@ -490,6 +515,90 @@ export class HelmetSet {
     this.group.add(pts);
   }
 
+  _petals() {
+    // White flowers laid round the reactor on the water: rosettes of cupped
+    // petals, inner rows more upright, with a few dark leaves.
+    const rand = mulberry(77);
+    const g = new THREE.PlaneGeometry(1, 1, 8, 8);
+    g.translate(0, 0.5, 0);
+    const pos = g.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const y = pos.getY(i);
+      const w = Math.pow(Math.sin(Math.PI * (y * 0.86 + 0.07)), 0.75) * (0.3 + 0.7 * Math.sqrt(y));
+      pos.setX(i, x * w);
+      pos.setZ(i, (x * w) * (x * w) * 1.1 + y * y * 0.28);
+    }
+    g.rotateX(-Math.PI / 2);
+    g.computeVertexNormals();
+    this._keep(g);
+    const heads = 12;
+    const perHead = this.lowPower ? 8 : 14;
+    const n = heads * (perHead + 2);
+    const mat = this._keep(
+      new THREE.MeshPhysicalMaterial({ color: "#ffffff", roughness: 0.6, sheen: 1, sheenColor: new THREE.Color("#fff4ea"), sheenRoughness: 0.35, side: THREE.DoubleSide })
+    );
+    const mesh = new THREE.InstancedMesh(g, mat, n);
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    mesh.receiveShadow = true;
+    mesh.castShadow = false;
+    this.petalData = [];
+    const cream = new THREE.Color("#f4eee6");
+    const warm = new THREE.Color("#efe1d4");
+    const leaf = new THREE.Color("#1b2716");
+    let i = 0;
+    for (let h = 0; h < heads; h++) {
+      const ha = (h / heads) * Math.PI * 2 + rand() * 0.3;
+      const hr = 0.09 + (h % 3) * 0.028 + rand() * 0.012;
+      const cx = REACTOR_POS.x + Math.cos(ha) * hr;
+      const cz = REACTOR_POS.z + Math.sin(ha) * hr;
+      const hs = 1.3 + rand() * 0.6;
+      const delay = (h / heads) * 0.45 + rand() * 0.1;
+      for (let k = 0; k < perHead + 2; k++) {
+        const isLeaf = k >= perHead;
+        const layer = isLeaf ? 0 : k < perHead * 0.5 ? 0 : k < perHead * 0.8 ? 1 : 2;
+        const a = (k / (isLeaf ? 2 : perHead * 0.5)) * Math.PI * 2 + layer * 0.7 + rand() * 0.25;
+        this.petalData.push({
+          x: cx,
+          z: cz,
+          yaw: a,
+          tilt: isLeaf ? 0.05 : [0.25, 0.75, 1.15][layer] + rand() * 0.15,
+          size: (isLeaf ? 0.034 : [0.019, 0.014, 0.009][layer]) * hs,
+          wide: isLeaf ? 0.45 : 0.9,
+          delay: delay + layer * 0.06,
+          phase: rand() * 6.28,
+        });
+        mesh.setColorAt(i++, isLeaf ? leaf : rand() < 0.35 ? warm : cream);
+      }
+    }
+    this.petals = mesh;
+    this.group.add(mesh);
+  }
+
+  _updatePetals(t) {
+    const p = this.state.petals;
+    this.petals.visible = p > 0.001;
+    if (!this.petals.visible) return;
+    const m = this._m;
+    const tilt = this._tiltQ || (this._tiltQ = new THREE.Quaternion());
+    const X = this._xAxis || (this._xAxis = new THREE.Vector3(1, 0, 0));
+    for (let i = 0; i < this.petalData.length; i++) {
+      const d = this.petalData[i];
+      const open = THREE.MathUtils.smoothstep(p, d.delay, d.delay + 0.4);
+      const s = d.size * (0.2 + 0.8 * open);
+      this._e.set(0, d.yaw + Math.sin(t * 0.3 + d.phase) * 0.03, 0);
+      this._q.setFromEuler(this._e);
+      // Closed buds open outward as the shot settles.
+      tilt.setFromAxisAngle(X, d.tilt + (1 - open) * 1.2);
+      this._q.multiply(tilt);
+      this._v.set(d.x, 0.002 + Math.sin(t * 1.1 + d.phase * 0.2) * 0.0012, d.z);
+      m.compose(this._v, this._q, this._sc.set(s * d.wide, s, s));
+      if (open <= 0) m.makeScale(0, 0, 0);
+      this.petals.setMatrixAt(i, m);
+    }
+    this.petals.instanceMatrix.needsUpdate = true;
+  }
+
   _lights() {
     const size = this.lowPower ? 1024 : 2048;
     const src = REACTOR_POS.clone().add(new THREE.Vector3(0.006, 0.03, 0.006));
@@ -511,11 +620,16 @@ export class HelmetSet {
     const rim = new THREE.SpotLight("#ff4a26", 0, 6, 0.42, 0.9, 1.5);
     rim.position.set(-0.6, 1.25, -1.15);
     rim.target.position.copy(HELMET_POS);
+    // A soft, cold light from above for the water: grief, not drama.
+    const moon = new THREE.SpotLight("#cdd8ec", 0, 5, 0.5, 1, 1.5);
+    moon.position.set(REACTOR_POS.x + 0.5, 2.0, REACTOR_POS.z + 0.6);
+    moon.target.position.copy(REACTOR_POS);
+    this.group.add(moon, moon.target);
     const rim2 = new THREE.SpotLight("#c9d4e6", 0, 6, 0.35, 0.9, 1.5);
     rim2.position.set(0.95, 0.9, -0.9);
     rim2.target.position.copy(HELMET_POS);
     this.group.add(key, key.target, spill, rim, rim.target, rim2, rim2.target);
-    this.lights = { key, spill, rim, rim2 };
+    this.lights = { key, spill, rim, rim2, moon };
   }
 
   /** Called by the stage once per frame. `pulse` is the heartbeat envelope 0 … 1. */
@@ -543,14 +657,21 @@ export class HelmetSet {
     L.spill.intensity = 0.05 * p;
     L.rim.intensity = 7 * S.rim;
     L.rim2.intensity = 2.2 * S.rim;
+    L.moon.intensity = 1.6 * S.water * S.water;
 
     const eyes = S.eyes * eyeLevel * (0.55 + 0.45 * pulse) * (S.erode > 0.02 ? 0 : 1);
-    this.eyeGlowMat.opacity = Math.min(1, eyes * 0.9);
+    this.eyeGlowMat.opacity = Math.min(0.65, eyes * 0.6);
 
     // Servo: the faceplate strains open a few millimetres and drops back.
     this.hinge.rotation.x = -0.075 * S.twitch * (1 - S.erode * 4);
 
     this._updateShards(t);
+    this._updatePetals(t);
+    // Afloat: the reactor rides the water once the floor has stilled.
+    u.uWater.value = S.water;
+    const fl = S.water;
+    this.reactor.position.y = REACTOR_POS.y + fl * (0.004 + Math.sin(t * 1.1) * 0.0015);
+    this.reactor.rotation.z = this._reactorRest.z + fl * Math.sin(t * 0.7) * 0.03;
   }
 
   _updateShards(t) {

@@ -35,6 +35,7 @@ export const CUES = [
   { t: 3.25, name: "powerdown" },
   { t: 3.48, name: "lastBeat", arg: 0.45 },
   { t: 3.62, name: "crack" },
+  { t: 4.9, name: "water" },
   { t: 5.15, name: "ring" },
   { t: 6.04, name: "hall" },
   ...Array.from({ length: WALK_STEPS }, (_, i) => ({
@@ -44,6 +45,7 @@ export const CUES = [
   })),
   { t: 8.15, name: "cloth" },
   { t: 9.02, name: "activate" },
+  { t: 9.8, name: "forge" },
   { t: 10.62, name: "surge" },
   { t: FINALE.doom.at, name: "impact" },
 ];
@@ -86,7 +88,8 @@ export function buildChoreography(stage, storyEl, overlay, { reducedMotion, onCu
     face: key({ x: -0.13, y: 0.16, z: 0.4 }, { x: H.x - 0.03, y: H.y + 0.015, z: H.z + 0.06 }, 28),
     faceIn: key({ x: -0.1, y: 0.152, z: 0.33 }, { x: H.x - 0.035, y: H.y + 0.015, z: H.z + 0.07 }, 28),
     pull: key({ x: 0.1, y: 0.48, z: 1.25 }, { x: 0, y: 0.22, z: -0.05 }, 34, 0.04),
-    depth: key({ x: 0.25, y: 0.85, z: 1.35 }, { x: -0.05, y: 0.75, z: -2.5 }, 38, 0.02),
+    water: key({ x: R.x + 0.3, y: 0.42, z: R.z + 0.46 }, { x: R.x, y: 0.0, z: R.z }, 30, 0.01),
+    waterIn: key({ x: R.x + 0.2, y: 0.27, z: R.z + 0.3 }, { x: R.x, y: 0.004, z: R.z }, 30, 0.0),
     hall: key(D(0.6, 0.35, 12.5), D(0, 1.2, -2), 36),
     hallIn: key(D(0.25, 0.45, 8.8), D(0, 1.15, -2), 36),
     walk: key(D(0, 0.85, 6.8), D(0, 1.25, -1.5), 32),
@@ -108,7 +111,8 @@ export function buildChoreography(stage, storyEl, overlay, { reducedMotion, onCu
   move(shots.face, 2.15, 0.85, "sine.inOut");
   move(shots.faceIn, 3.0, 0.6, "sine.inOut"); // 2.1 — nearly still
   move(shots.pull, 3.6, 1.25, "power2.inOut");
-  move(shots.depth, 4.85, 0.95, "sine.inOut");
+  move(shots.water, 4.75, 0.35, "power2.inOut");
+  move(shots.waterIn, 5.1, 0.7, "sine.out");
   tl.set(cam, shots.hall, 5.92);
   move(shots.hallIn, 5.92, 1.0, "sine.out");
   move(shots.walk, 6.92, 0.35, "power2.inOut");
@@ -127,7 +131,8 @@ export function buildChoreography(stage, storyEl, overlay, { reducedMotion, onCu
   tl.to(look, { dof: 0.7, duration: 0.6, ease: "sine.inOut" }, 1.2);
   tl.to(look, { dof: 0.5, duration: 0.4 }, 2.2);
   tl.to(look, { dof: 0.15, duration: 0.6 }, 3.6);
-  tl.to(look, { dof: 0, duration: 0.3 }, 4.8);
+  tl.to(look, { dof: 0.45, duration: 0.3 }, 4.8);
+  tl.to(look, { dof: 0, duration: 0.2 }, 5.7);
   tl.to(look, { dof: 0.35, duration: 0.3 }, 7.2);
   tl.to(look, { dof: 0.6, duration: 0.3 }, 8.1);
   tl.set(look, { dof: 1.4 }, 8.98);
@@ -190,6 +195,11 @@ export function buildChoreography(stage, storyEl, overlay, { reducedMotion, onCu
   tl.to(audio, { rumble: 0.9, duration: 0.5, ease: "sine.in" }, 3.55);
   tl.to(audio, { rumble: 0.25, duration: 0.7, ease: "sine.out" }, 4.6);
   tl.to(audio, { rumble: 0.0, duration: 0.4 }, 5.5);
+  // The reactor laid on still water in a ring of petals; one last glow.
+  tl.to(HS, { water: 1, duration: 0.55, ease: "sine.inOut" }, 4.55);
+  tl.to(HS, { petals: 1, duration: 0.6, ease: "sine.out" }, 4.85);
+  tl.to(HS, { keyframes: [{ reactor: 0.09, duration: 0.25, ease: "sine.inOut" }, { reactor: 0, duration: 0.35, ease: "sine.in" }] }, 5.0);
+  tl.to(look, { env: 0.16, duration: 0.4 }, 4.7);
   tl.to(look, { exposure: 0, duration: 0.25, ease: "power1.in" }, 5.6);
 
   // ----------------------------------------------------- act III — unknown
@@ -208,7 +218,10 @@ export function buildChoreography(stage, storyEl, overlay, { reducedMotion, onCu
   tl.to(DS, { bolts: 1, duration: 0.3 }, 9.3);
   tl.to(DS, { sigil: 1, duration: 0.45, ease: "power2.inOut" }, 9.3);
   tl.to(DS, { front: 0.4, duration: 0.5, ease: "sine.inOut" }, 9.45);
-  tl.to(DS, { eyes: 1, duration: 0.3 }, 9.9);
+  tl.to(DS, { eyes: 1, duration: 0.3 }, 10.2);
+  // The forge: the mask is red-hot in the close-up and cools to iron.
+  tl.fromTo(DS, { heat: 0 }, { heat: 1, duration: 0.05, immediateRender: false }, 9.76);
+  tl.to(DS, { heat: 0, duration: 0.48, ease: "power1.out" }, 9.86);
   tl.to(DS, { hall: 0.7, duration: 0.5 }, 9.3);
   tl.to(audio, { dark: 0.4, duration: 0.5 }, 9.0);
   // The surge.

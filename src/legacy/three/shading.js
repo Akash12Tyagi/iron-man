@@ -86,11 +86,51 @@ export function erodeFieldApprox(p, r) {
   return Math.min(1, Math.max(0, d * 0.7 + r * 0.24 + 0.03));
 }
 
+// Cheap 3D cellular noise: distance to the nearest of a jittered lattice of
+// points (F1). Hammered metal is a field of shallow round dimples.
+export const CELLS = /* glsl */ `
+vec3 lpHash3(vec3 p){
+  p = vec3(dot(p, vec3(127.1, 311.7, 74.7)), dot(p, vec3(269.5, 183.3, 246.1)), dot(p, vec3(113.5, 271.9, 124.6)));
+  return fract(sin(p) * 43758.5453123);
+}
+float cells(vec3 p){
+  vec3 i = floor(p); vec3 f = fract(p); float d = 8.0;
+  for (int z = -1; z <= 1; z++) for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++){
+    vec3 g = vec3(float(x), float(y), float(z));
+    vec3 o = lpHash3(i + g);
+    vec3 r = g + o - f;
+    d = min(d, dot(r, r));
+  }
+  return sqrt(d);
+}
+// Bump-mapping without a texture: perturb the normal by the screen-space
+// gradient of a procedural height, normalised to world units so the relief
+// looks the same at any distance.
+vec3 lpPerturb(vec3 surfPos, vec3 n, float h, float faceDir){
+  vec3 dpx = dFdx(surfPos); vec3 dpy = dFdy(surfPos);
+  vec2 dh = vec2(dFdx(h), dFdy(h)) / max(vec2(length(dpx), length(dpy)), vec2(1e-6));
+  vec3 sx = normalize(dpx); vec3 sy = normalize(dpy);
+  vec3 r1 = cross(sy, n); vec3 r2 = cross(n, sx);
+  float det = dot(sx, r1) * faceDir;
+  vec3 grad = sign(det) * (dh.x * r1 + dh.y * r2);
+  return normalize(abs(det) * n - grad);
+}
+`;
+
 /**
- * Patch a MeshPhysicalMaterial (and its shadow depth twin) with object-space
- * wear: scorch, fine scratches, cracks and, optionally, the erosion front.
+ * Patch a MeshPhysicalMaterial (and nothing else) with object-space detail:
  *
- * opts: { uniforms, erode: bool, scorch, scratch, crack (0 = none), scale, key }
+ *  - baked occlusion (the aAO vertex attribute from the sculpt worker):
+ *    darkens indirect light and grime collects in the crevices
+ *  - scorch, fine directional scratches and cracks
+ *  - relief: procedural bump ("paint" orange-peel + scratch grooves,
+ *    "hammered" forged dimples, "weave" for cloth), faded out where a pixel
+ *    is larger than the detail so it never sparkles
+ *  - inner: the inside of a shell shows dark circuitry (torn panels)
+ *  - heat: red-hot glow that cools from the thin edges inward (uHeat)
+ *  - tunic: the torso's middle is a green cloth tunic, not metal
+ *  - band: an embroidered border round the hood's face opening
+ *  - erode: the disintegration front (Act II)
  */
 export function wear(material, opts = {}) {
   const {
@@ -100,6 +140,13 @@ export function wear(material, opts = {}) {
     scratch = 0.5,
     crack = 0,
     scale = 1,
+    ao = false,
+    relief = "paint",
+    reliefScale = 1,
+    inner = false,
+    heat = false,
+    tunic = false,
+    band = false,
     key = "wear",
   } = opts;
   material.userData.uniforms = uniforms;
@@ -108,21 +155,48 @@ export function wear(material, opts = {}) {
     #define LP_SCORCH ${scorch.toFixed(3)}
     #define LP_SCRATCH ${scratch.toFixed(3)}
     #define LP_CRACK ${crack.toFixed(3)}
+    #define LP_RELIEF_K ${reliefScale.toFixed(3)}
     ${crack > 0 ? "#define LP_HAS_CRACK 1" : ""}
     ${erode ? "#define LP_ERODE 1" : ""}
+    ${ao ? "#define LP_AO 1" : ""}
+    ${relief === "paint" ? "#define LP_PAINT 1" : ""}
+    ${relief === "hammered" ? "#define LP_HAMMERED 1" : ""}
+    ${relief === "weave" ? "#define LP_WEAVE 1" : ""}
+    ${inner ? "#define LP_INNER 1" : ""}
+    ${heat ? "#define LP_HEAT 1" : ""}
+    ${tunic ? "#define LP_TUNIC 1" : ""}
+    ${band ? "#define LP_BAND 1" : ""}
   `;
+  if (heat && !uniforms.uHeat) uniforms.uHeat = { value: 0 };
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = shader.vertexShader
-      .replace("#include <common>", "#include <common>\nvarying vec3 vObj;")
-      .replace("#include <begin_vertex>", "#include <begin_vertex>\nvObj = position;");
+      .replace(
+        "#include <common>",
+        `#include <common>
+        varying vec3 vObj;
+        ${ao ? "attribute float aAO; varying float vAO;" : ""}`
+      )
+      .replace(
+        "#include <begin_vertex>",
+        `#include <begin_vertex>
+        vObj = position;
+        ${ao ? "vAO = aAO;" : ""}`
+      );
     shader.fragmentShader = shader.fragmentShader
       .replace(
         "#include <common>",
         `#include <common>
         ${defines}
         varying vec3 vObj;
+        #ifdef LP_AO
+          varying float vAO;
+        #endif
+        #ifdef LP_HEAT
+          uniform float uHeat;
+        #endif
         ${NOISE}
+        ${CELLS}
         ${erode ? EROSION : ""}
         float lpCrack(vec3 p){
           float c = 0.0;
@@ -150,31 +224,128 @@ export function wear(material, opts = {}) {
         "#include <map_fragment>",
         `#include <map_fragment>
         vec3 lpP = vObj * LP_SCALE;
+        float lpAO = 1.0;
+        #ifdef LP_AO
+          lpAO = clamp(vAO, 0.0, 1.0);
+        #endif
+        float lpCav = 1.0 - lpAO; // 1 deep in a crevice
         float lpScorch = smoothstep(0.1, 0.75, fbm3(lpP * 18.0) * 0.5 + 0.5) * LP_SCORCH;
-        // Scratches: zero-crossings of noise stretched along two directions
-        // read as fine straight-ish lines, only where a mask allows.
+        lpScorch = clamp(lpScorch + lpCav * 0.6 * LP_SCORCH, 0.0, 1.0); // soot gathers in the seams
         float lpMaskS = smoothstep(0.15, 0.6, snoise(lpP * 11.0 + 5.0));
         float lpS1 = 1.0 - smoothstep(0.0, 0.03, abs(snoise(vec3(dot(lpP, vec3(0.8, 0.6, 0.0)) * 520.0, lpP.y * 14.0, lpP.z * 14.0))));
         float lpS2 = 1.0 - smoothstep(0.0, 0.025, abs(snoise(vec3(dot(lpP, vec3(-0.3, 0.2, 0.93)) * 600.0, lpP.x * 12.0, lpP.y * 12.0) + 9.0)));
-        float lpScratch = max(lpS1, lpS2 * 0.8) * lpMaskS * LP_SCRATCH;
+        float lpScratch = max(lpS1, lpS2 * 0.8) * lpMaskS * LP_SCRATCH * (1.0 - lpCav);
         float lpCr = lpCrack(vObj);
-        diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.18, lpScorch);
-        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.62, 0.6, 0.58), lpScratch * 0.55);
-        diffuseColor.rgb *= 1.0 - lpCr * 0.95;`
+        // Edge wear: on raised, exposed metal the paint is rubbed back.
+        float lpEdgeWear = smoothstep(0.985, 1.0, lpAO) * smoothstep(0.55, 0.8, snoise(lpP * 60.0) * 0.5 + 0.5) * LP_SCRATCH;
+        diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.16, lpScorch);
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.62, 0.6, 0.58), max(lpScratch * 0.55, lpEdgeWear * 0.6));
+        diffuseColor.rgb *= (1.0 - lpCr * 0.95) * mix(1.0, 0.55, lpCav);
+        float lpCloth = 0.0;
+        #ifdef LP_TUNIC
+          // The middle of the torso is a dark green wool tunic over the armour.
+          lpCloth = smoothstep(1.005, 1.02, vObj.y) * (1.0 - smoothstep(1.47, 1.49, vObj.y));
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.022, 0.07, 0.04) * mix(1.0, 0.5, lpCav), lpCloth);
+        #endif
+        #ifdef LP_BAND
+          // Embroidered border round the face opening: a tight meander in
+          // darker thread with a faint metallic edge.
+          vec3 lpE = (vObj - vec3(0.0, -0.012, 0.135)) / vec3(0.09, 0.13, 0.16);
+          float lpER = length(lpE);
+          float lpBand = smoothstep(1.02, 1.05, lpER) * (1.0 - smoothstep(1.28, 1.31, lpER));
+          float lpAng = atan(lpE.y, lpE.x);
+          float lpMeander = step(0.5, fract(lpAng * 9.549 + step(0.5, fract(lpER * 14.0)) * 0.5));
+          float lpThread = lpBand * (0.55 + 0.45 * lpMeander);
+          float lpRim = lpBand * (smoothstep(0.02, 0.0, abs(lpER - 1.06)) + smoothstep(0.02, 0.0, abs(lpER - 1.27)));
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.035, 0.11, 0.06), lpThread * 0.8);
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.32, 0.27, 0.15), lpRim);
+        #endif`
       )
       .replace(
         "#include <roughnessmap_fragment>",
         `#include <roughnessmap_fragment>
-        roughnessFactor = clamp(roughnessFactor + lpScorch * 0.35 - lpScratch * 0.12 + lpCr * 0.6 + (snoise(lpP * 120.0) * 0.06), 0.04, 1.0);`
+        roughnessFactor = clamp(roughnessFactor + lpScorch * 0.35 - lpScratch * 0.12 + lpCr * 0.6 + lpCav * 0.25 + (snoise(lpP * 120.0) * 0.06), 0.04, 1.0);
+        roughnessFactor = mix(roughnessFactor, 0.9, lpCloth);`
+      )
+      .replace(
+        "#include <metalnessmap_fragment>",
+        `#include <metalnessmap_fragment>
+        metalnessFactor = mix(metalnessFactor, 0.0, lpCloth);
+        #ifdef LP_BAND
+          metalnessFactor = max(metalnessFactor, lpRim * 0.7);
+        #endif`
+      )
+      .replace(
+        "#include <normal_fragment_maps>",
+        `#include <normal_fragment_maps>
+        {
+          float lpPix = length(fwidth(vObj));
+          float lpH = 0.0;
+          #ifdef LP_PAINT
+            lpH += snoise(lpP * 380.0) * 0.000025 * smoothstep(0.0012, 0.0003, lpPix);
+            lpH -= lpScratch * 0.00009 * smoothstep(0.002, 0.0005, lpPix);
+            lpH += fbm3(lpP * 30.0) * 0.00025;
+          #endif
+          #ifdef LP_HAMMERED
+            float lpC = cells(lpP * 170.0 * LP_RELIEF_K);
+            lpH += smoothstep(0.0, 0.75, lpC) * 0.00032 / LP_RELIEF_K * smoothstep(0.003, 0.0008, lpPix);
+            lpH += snoise(lpP * 700.0) * 0.00001 * smoothstep(0.0008, 0.0002, lpPix);
+            lpH -= lpScratch * 0.00007;
+          #endif
+          #ifdef LP_WEAVE
+            vec3 lpW = vObj * 1400.0 * LP_RELIEF_K;
+            float lpWv = sin(lpW.x + lpW.y) * sin(lpW.y - lpW.z + lpW.x * 0.5);
+            lpH += lpWv * 0.00003 / LP_RELIEF_K * smoothstep(0.0012, 0.0003, lpPix);
+            lpH += fbm3(vObj * 60.0) * 0.0006;
+          #endif
+          #ifdef LP_TUNIC
+            vec3 lpT = vObj * 1300.0;
+            lpH += lpCloth * sin(lpT.x + lpT.y) * sin(lpT.y - lpT.x) * 0.00003 * smoothstep(0.0012, 0.0003, lpPix);
+          #endif
+          #ifdef LP_BAND
+            lpH += lpThread * 0.00025 + lpMeander * lpBand * 0.00015;
+          #endif
+          normal = lpPerturb(-vViewPosition, normal, lpH, faceDirection);
+        }`
       )
       .replace(
         "#include <emissivemap_fragment>",
         `#include <emissivemap_fragment>
+        #ifdef LP_INNER
+          // The inside of a torn shell: dark machinery and copper traces.
+          if (!gl_FrontFacing) {
+            vec3 lpG = vObj * 160.0;
+            float lpTr = max(step(0.93, fract(lpG.x + floor(lpG.y) * 0.37)) * step(0.5, fract(lpG.y * 0.5)),
+                             step(0.95, fract(lpG.y + floor(lpG.z) * 0.21)));
+            diffuseColor.rgb = mix(vec3(0.03, 0.03, 0.032), vec3(0.5, 0.28, 0.12), lpTr);
+            totalEmissiveRadiance += vec3(1.0, 0.45, 0.15) * lpTr * 0.04;
+          }
+        #endif
+        #ifdef LP_HEAT
+          // Red-hot iron cooling: thin edges cool first, recesses hold heat.
+          float lpHt = clamp(uHeat * (0.75 + 0.5 * lpCav) * (0.85 + 0.3 * snoise(lpP * 40.0)), 0.0, 1.0);
+          // Scale flakes stay dark while the iron between them glows.
+          float lpScale = smoothstep(0.42, 0.7, fbm3(lpP * 55.0) * 0.5 + 0.5);
+          lpHt *= mix(1.0, 0.68, lpScale) * (0.8 + 0.2 * (fbm3(lpP * 140.0) * 0.5 + 0.5));
+          lpHt = lpHt * lpHt;
+          vec3 lpBody = vec3(1.0, 0.16 + 0.42 * lpHt, 0.03 + 0.12 * lpHt * lpHt);
+          totalEmissiveRadiance += lpBody * lpHt * 1.5;
+          diffuseColor.rgb *= 1.0 - 0.6 * lpHt;
+        #endif
         #ifdef LP_ERODE
           float lpEdge = smoothstep(-0.05, 0.0, lpRel) * step(0.001, uErode);
           totalEmissiveRadiance += vec3(1.0, 0.42, 0.12) * lpEdge * lpEdge * 2.2
                                  + vec3(1.0, 0.75, 0.4) * pow(lpEdge, 10.0) * 3.5;
         #endif`
+      )
+      .replace(
+        "#include <aomap_fragment>",
+        `#include <aomap_fragment>
+        // Baked occlusion: indirect light mostly, direct light a little.
+        reflectedLight.indirectDiffuse *= lpAO;
+        reflectedLight.indirectSpecular *= mix(1.0, lpAO, 0.9);
+        reflectedLight.directDiffuse *= mix(1.0, lpAO, 0.45);
+        reflectedLight.directSpecular *= mix(1.0, lpAO, 0.6);`
       );
   };
   material.customProgramCacheKey = () => `${key}-${erode}`;
