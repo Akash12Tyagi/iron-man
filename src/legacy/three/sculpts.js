@@ -110,6 +110,23 @@ export function helmetShellField(p) {
   // Ear disc inset ring.
   const ring = Math.max(Math.abs(Math.hypot(p.y + 0.002, p.z + 0.012) - 0.022) - 0.0018, -(o + 0.0025));
   s = smax(s, -ring, 0.0012);
+  // Panel seams: the jaw line round the back, the spine of the skull.
+  const groove = (d) => Math.max(d - 0.0015, -(o + 0.0028));
+  s = smax(s, -Math.max(groove(Math.abs(p.y + 0.042 - 0.12 * Math.max(0, p.z))), p.z - 0.035), 0.0012);
+  s = smax(s, -Math.max(groove(Math.abs(p.x)), -p.z - 0.01, -0.06 - p.y), 0.0012);
+  s = smax(s, -Math.max(groove(Math.abs(p.y - 0.06 - 0.25 * p.z)), -p.z - 0.02, p.y - 0.1), 0.0012);
+  // Three cooling vents in each jaw, behind the cheeks.
+  const ax = Math.abs(p.x);
+  let vents = Infinity;
+  for (let i = 0; i < 3; i++) vents = Math.min(vents, Math.max(Math.abs(p.y + 0.062 + i * 0.011) - 0.0026, Math.abs(p.z + 0.03) - 0.018));
+  s = smax(s, -Math.max(vents, 0.06 - ax, -(o + 0.004)), 0.001);
+  // Screw heads round the ear discs.
+  let screws = Infinity;
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2 + 0.4;
+    screws = Math.min(screws, Math.hypot(p.y + 0.002 - Math.cos(a) * 0.0265, p.z + 0.012 - Math.sin(a) * 0.0265) - 0.0024);
+  }
+  s = smin(s, Math.max(screws, Math.abs(ax - 0.106) - 0.0022), 0.0008);
   // Open neck.
   s = smax(s, -(p.y + 0.128) - 0.02 * Math.max(0, -p.z - 0.02), 0.004);
   s = smax(s, -tearCut(p), 0.003);
@@ -129,6 +146,10 @@ export function faceplateField(p) {
   s = smax(s, -cheek, 0.001);
   const jaw = Math.max(seg2(ax, p.y, 0.036, -0.072, 0.03, -0.118) - 0.002, -(o + 0.0035), 0.04 - p.z);
   s = smax(s, -jaw, 0.001);
+  // Forehead strip rails, the chin split and the seam under each eye.
+  s = smax(s, -Math.max(Math.abs(ax - 0.011) - 0.0012, -(o + 0.003), 0.05 - p.y, 0.04 - p.z), 0.0008);
+  s = smax(s, -Math.max(Math.abs(p.x) - 0.0013, -(o + 0.003), p.y + 0.088, 0.03 - p.z), 0.0008);
+  s = smax(s, -Math.max(seg2(ax, p.y, 0.02, -0.006, 0.062, -0.002) - 0.0012, -(o + 0.003), 0.04 - p.z), 0.0008);
   // A dent across the right cheek.
   const dd = (p.x - 0.052) ** 2 + (p.y + 0.035) ** 2 + (p.z - 0.088) ** 2;
   s += 0.0045 * Math.exp(-dd / 0.00035);
@@ -172,6 +193,10 @@ function maskOuter(p) {
   // Nose ridge and cheekbones.
   s = smin(s, tap(p, [0, 0.03, 0.07], [0, -0.026, 0.082], 0.008, 0.012), 0.012);
   s = smin(s, ell(q, 0.046, -0.018, 0.052, 0.026, 0.014, 0.02), 0.012);
+  // Squared off: flat temples and a straight, blocky jaw.
+  s = smax(s, ax - 0.074, 0.006);
+  s = smax(s, -p.y - 0.108 + ax * 0.25, 0.008);
+  s = smax(s, (ax * 0.7 + p.y * 0.71) - 0.118, 0.008);
   return s;
 }
 
@@ -191,11 +216,11 @@ export function maskField(p) {
   const ring = Math.abs(er - 1) * 0.07 - 0.0028;
   s = smin(s, emboss(p, o, Math.max(ring, 0.01 - p.z), 0.0022), 0.0015);
   let rivet = Infinity;
-  for (let i = 0; i < 9; i++) {
-    const a = -Math.PI / 2 + (i / 8) * Math.PI;
+  for (let i = 0; i < 13; i++) {
+    const a = -Math.PI / 2 + (i / 12) * Math.PI;
     const rx = Math.cos(a) * 0.0635;
     const ry = Math.sin(a) * 0.098;
-    rivet = Math.min(rivet, Math.hypot(ax - rx, p.y - ry) - 0.0034);
+    rivet = Math.min(rivet, Math.hypot(ax - rx, p.y - ry) - 0.0029);
   }
   s = smin(s, emboss(p, o, Math.max(rivet, 0.005 - p.z), 0.0034), 0.0012);
   // Eye holes, slanted down toward the nose.
@@ -207,9 +232,14 @@ export function maskField(p) {
   let slots = Infinity;
   for (let i = -2; i <= 2; i++) slots = Math.min(slots, Math.max(Math.abs(p.x - i * 0.0125) - 0.0031, Math.abs(p.y + 0.062) - 0.0082));
   s = smax(s, -Math.max(slots, 0.03 - p.z), 0.0012);
-  // Cheek seams.
+  // Cheek seams and the plate lines of a mask forged in pieces.
   const seam = Math.max(seg2(ax, p.y, 0.06, -0.005, 0.041, -0.088) - 0.0016, -(o + 0.0025), 0.02 - p.z);
   s = smax(s, -seam, 0.001);
+  s = smax(s, -Math.max(Math.abs(p.y - 0.056) - 0.0012, -(o + 0.0022), 0.02 - p.z, ax - 0.06), 0.0008);
+  s = smax(s, -Math.max(Math.abs(p.y + 0.03) - 0.0011, -(o + 0.0022), 0.02 - p.z, 0.044 - ax, ax - 0.068), 0.0008);
+  // A horizontal bar across the mouth slots, and a stepped chin plate.
+  s = smin(s, Math.max(Math.abs(p.x) - 0.034, Math.abs(p.y + 0.062) - 0.0018, Math.abs(p.z - 0.068) - 0.004), 0.001);
+  s = smin(s, emboss(p, o, Math.max(Math.abs(p.x) - 0.028, Math.abs(p.y + 0.092) - 0.008), 0.0018), 0.0012);
   return s;
 }
 
@@ -288,14 +318,42 @@ export function legField(p) {
 // ------------------------------------------------------------------ meshing
 const box = (x0, y0, z0, x1, y1, z1) => new THREE.Box3(new THREE.Vector3(x0, y0, z0), new THREE.Vector3(x1, y1, z1));
 
+/**
+ * Ambient occlusion baked from the field itself: march a few steps out
+ * along the normal and compare the distance found with the distance
+ * travelled (Quílez). Crevices, seams and the inside of the hood go dark.
+ */
+export function bakeAO(field, geo, reach) {
+  const pos = geo.attributes.position.array;
+  const nor = geo.attributes.normal.array;
+  const n = pos.length / 3;
+  const ao = new Float32Array(n);
+  const p = new THREE.Vector3();
+  for (let i = 0; i < n; i++) {
+    let occ = 0;
+    let w = 1;
+    for (let k = 1; k <= 5; k++) {
+      const d = (reach * k) / 5;
+      p.set(pos[i * 3] + nor[i * 3] * d, pos[i * 3 + 1] + nor[i * 3 + 1] * d, pos[i * 3 + 2] + nor[i * 3 + 2] * d);
+      occ += w * Math.max(0, d - field(p));
+      w *= 0.6;
+    }
+    ao[i] = Math.min(1, Math.max(0, 1 - (occ / reach) * 1.6));
+  }
+  geo.setAttribute("aAO", new THREE.BufferAttribute(ao, 1));
+  return geo;
+}
+
+const job = (field, b, step, reach) => (k) => bakeAO(field, surfaceNets(field, b, step * k), reach);
+
 /** Each sculpt as an independent job, so several workers can share them. */
 export const JOBS = {
-  helmet: (k) => surfaceNets(helmetShellField, box(-0.12, -0.15, -0.16, 0.12, 0.16, 0.15), 0.0024 * k),
-  faceplate: (k) => surfaceNets(faceplateField, box(-0.1, -0.15, -0.02, 0.1, 0.13, 0.14), 0.0019 * k),
-  mask: (k) => surfaceNets(maskField, box(-0.09, -0.13, -0.06, 0.09, 0.13, 0.1), 0.0017 * k),
-  hood: (k) => surfaceNets(hoodField, box(-0.28, -0.3, -0.22, 0.28, 0.2, 0.2), 0.0042 * k),
-  torso: (k) => surfaceNets(torsoField, box(-0.23, 0.82, -0.16, 0.23, 1.66, 0.2), 0.0065 * k),
-  leg: (k) => surfaceNets(legField, box(-0.1, -0.93, -0.1, 0.1, 0.1, 0.18), 0.007 * k),
+  helmet: job(helmetShellField, box(-0.12, -0.15, -0.16, 0.12, 0.16, 0.15), 0.0021, 0.012),
+  faceplate: job(faceplateField, box(-0.1, -0.15, -0.02, 0.1, 0.13, 0.14), 0.0017, 0.01),
+  mask: job(maskField, box(-0.09, -0.13, -0.06, 0.09, 0.13, 0.1), 0.0015, 0.01),
+  hood: job(hoodField, box(-0.28, -0.3, -0.22, 0.28, 0.2, 0.2), 0.0038, 0.05),
+  torso: job(torsoField, box(-0.23, 0.82, -0.16, 0.23, 1.66, 0.2), 0.006, 0.04),
+  leg: job(legField, box(-0.1, -0.93, -0.1, 0.1, 0.1, 0.18), 0.0065, 0.04),
 };
 
 /** quality 1 = desktop, ~0.6 = mobile. Synchronous; the worker runs JOBS. */

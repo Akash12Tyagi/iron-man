@@ -419,6 +419,30 @@ export class Score {
     this._metal(t, 330, 4.5, 0.05, 0.95);
   }
 
+  _cue_water(t) {
+    // A drop on still water: a falling sine "plink", then soft lapping.
+    const ctx = this.ctx;
+    const o = this._osc("sine", 1400);
+    o.frequency.setValueAtTime(1400, t);
+    o.frequency.exponentialRampToValueAtTime(520, t + 0.09);
+    const g = ctx.createGain();
+    this._env(g, t, 0.002, 0.08, 0.16);
+    o.connect(g);
+    this._out(g, 0.8);
+    o.start(t);
+    o.stop(t + 0.25);
+    for (let i = 0; i < 4; i++) this._burst(t + 0.3 + i * 0.55 + Math.random() * 0.2, 0.5, "bandpass", 500 + Math.random() * 300, 1.5, 0.025, 0.6, this.brown);
+  }
+
+  _cue_forge(t) {
+    // Red-hot iron meeting skin and air: a long hiss and a cooling tick.
+    const f = this._burst(t, 1.8, "highpass", 3500, 0.7, 0.22, 0.5);
+    f.frequency.setValueAtTime(5000, t);
+    f.frequency.exponentialRampToValueAtTime(1800, t + 1.8);
+    this._thump(t, 60, 35, 0.6, 0.35, 0.4);
+    for (let i = 0; i < 5; i++) this._metal(t + 0.4 + i * 0.28 + Math.random() * 0.1, 2400 + Math.random() * 800, 0.06, 0.012, 0.5);
+  }
+
   _cue_hall(t) {
     this._thump(t, 45, 28, 2.5, 0.6, 0.7);
     for (let i = 0; i < 9; i++) this._metal(t + 0.3 + i * 0.09 + Math.random() * 0.05, 900 + Math.random() * 600, 0.12, 0.025, 0.7);

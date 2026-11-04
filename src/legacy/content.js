@@ -28,12 +28,14 @@ export const LINES = [
   { text: "Silence.", at: 3.38, out: 3.72, tone: "ash" },
   { text: "Time does not stop for heroes.", at: 4.1, out: 4.7, tone: "ash" },
   { text: "It only remembers them.", at: 4.95, out: 5.5, tone: "ash" },
-  { text: "Far from here, another throne has waited.", at: 6.3, out: 6.88, tone: "green" },
-  { text: "He does not ask for permission.", at: 7.12, out: 7.75, tone: "green" },
+  { text: "In the mountains of Latveria, another throne has waited.", at: 6.25, out: 6.82, tone: "green" },
+  { text: "Born with nothing. Raised on science and sorcery.", at: 6.98, out: 7.5, tone: "green" },
+  { text: "He does not ask for permission.", at: 7.56, out: 8.0, tone: "green" },
   { text: "He does not need to be loved.", at: 8.2, out: 8.82, tone: "green" },
   { text: "Only obeyed.", at: 9.22, out: 9.72, tone: "green" },
-  { text: "A hero left a legacy.", at: 9.95, out: 10.55, tone: "warm", pos: "upper" },
-  { text: "A villain will make history.", at: 10.15, out: 10.55, tone: "green", pos: "lower" },
+  { text: "He put on the mask before the iron had cooled.", at: 9.84, out: 10.2, tone: "forge" },
+  { text: "A hero left a legacy.", at: 10.22, out: 10.6, tone: "warm", pos: "upper" },
+  { text: "A villain will make history.", at: 10.32, out: 10.6, tone: "green", pos: "lower" },
 ];
 
 export const FINALE = {
